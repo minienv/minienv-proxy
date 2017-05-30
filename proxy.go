@@ -56,6 +56,8 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if isWebsocket(req) {
 		p.ReverseWebsocketProxy.ServeHTTP(rw, req)
 	} else {
+		rw.Header().Set("Access-Control-Allow-Origin", "*")
+		rw.Header().Set("Access-Control-Allow-Headers", "X-Requested-With")
 		p.ReverseHttpProxy.ServeHTTP(rw, req)
 	}
 }
