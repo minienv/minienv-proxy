@@ -53,11 +53,11 @@ func NewReverseProxy(targetHost string) *ReverseProxy {
 // ServeHTTP implements the http.Handler that proxies WebSocket connections.
 func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// Determine if request is HTTP or web socket
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	rw.Header().Set("Access-Control-Allow-Headers", "X-Requested-With")
 	if isWebsocket(req) {
 		p.ReverseWebsocketProxy.ServeHTTP(rw, req)
 	} else {
-		rw.Header().Set("Access-Control-Allow-Origin", "*")
-		rw.Header().Set("Access-Control-Allow-Headers", "X-Requested-With")
 		p.ReverseHttpProxy.ServeHTTP(rw, req)
 	}
 }
@@ -101,6 +101,7 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 		targetPort := hostParts[0]
 		backendURL.Host = p.TargetHost + ":" + targetPort
 	}
+	backendURL.Path = req.URL.Path
 
 	dialer := p.Dialer
 	if p.Dialer == nil {
