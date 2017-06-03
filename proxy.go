@@ -82,7 +82,7 @@ func NewReverseHttpProxy(targetHost string) *httputil.ReverseProxy {
 		req.URL.Scheme = "http"
 		req.Host = req.URL.Host
 	}
-	return &httputil.ReverseProxy{Director: director}
+	return &httputil.ReverseProxy{Director: director, Transport:&ProxyTransport{RoundTripper: http.DefaultTransport}}
 
 }
 
