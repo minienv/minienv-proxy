@@ -52,9 +52,10 @@ func NewReverseProxy(targetHost string) *ReverseProxy {
 
 // ServeHTTP implements the http.Handler that proxies WebSocket connections.
 func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	// Determine if request is HTTP or web socket
+	// Add CORS headers
 	rw.Header().Set("Access-Control-Allow-Origin", "*")
 	rw.Header().Set("Access-Control-Allow-Headers", "X-Requested-With")
+	// Route to websocket or http proxy
 	if isWebsocket(req) {
 		p.ReverseWebsocketProxy.ServeHTTP(rw, req)
 	} else {
