@@ -19,25 +19,18 @@ var (
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
-
 	// DefaultDialer is a dialer with all fields set to the default zero values.
 	DefaultDialer = websocket.DefaultDialer
 )
 
 type ReverseProxy struct {
-
-	// Handle http requests
-	ReverseHttpProxy *httputil.ReverseProxy
-
-	// Handle websocket requests
-	ReverseWebsocketProxy *ReverseWebsocketProxy
+	ReverseHttpProxy *httputil.ReverseProxy // http requests
+	ReverseWebsocketProxy *ReverseWebsocketProxy // websocket requests
 }
 
 type ReverseWebsocketProxy struct {
 	TargetHost string
-
 	Upgrader *websocket.Upgrader
-
 	Dialer *websocket.Dialer
 }
 

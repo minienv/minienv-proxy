@@ -9,7 +9,6 @@ type ProxyTransport struct {
 }
 
 func (t *ProxyTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	//return t.RoundTripper.RoundTrip(req)
 	resp, err = t.RoundTripper.RoundTrip(req)
 	if err != nil {
 		return nil, err
