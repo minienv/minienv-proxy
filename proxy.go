@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/gorilla/websocket"
@@ -21,17 +22,18 @@ var (
 	}
 	// DefaultDialer is a dialer with all fields set to the default zero values.
 	DefaultDialer = websocket.DefaultDialer
+	AllowOrigin = os.Getenv("EXUP_ALLOW_ORIGIN")
 )
 
 type ReverseProxy struct {
-	ReverseHttpProxy *httputil.ReverseProxy // http requests
+	ReverseHttpProxy      *httputil.ReverseProxy // http requests
 	ReverseWebsocketProxy *ReverseWebsocketProxy // websocket requests
 }
 
 type ReverseWebsocketProxy struct {
 	TargetHost string
-	Upgrader *websocket.Upgrader
-	Dialer *websocket.Dialer
+	Upgrader   *websocket.Upgrader
+	Dialer     *websocket.Dialer
 }
 
 // NewProxy returns a new Websocket reverse proxy that rewrites the
@@ -46,7 +48,7 @@ func NewReverseProxy(targetHost string) *ReverseProxy {
 // ServeHTTP implements the http.Handler that proxies WebSocket connections.
 func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// Add CORS headers
-	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	rw.Header().Set("Access-Control-Allow-Origin", AllowOrigin)
 	rw.Header().Set("Access-Control-Allow-Headers", "X-Requested-With")
 	// Route to websocket or http proxy
 	if isWebsocket(req) {
@@ -76,7 +78,7 @@ func NewReverseHttpProxy(targetHost string) *httputil.ReverseProxy {
 		req.URL.Scheme = "http"
 		req.Host = req.URL.Host
 	}
-	return &httputil.ReverseProxy{Director: director, Transport:&ProxyTransport{RoundTripper: http.DefaultTransport}}
+	return &httputil.ReverseProxy{Director: director, Transport: &ProxyTransport{RoundTripper: http.DefaultTransport}}
 
 }
 
