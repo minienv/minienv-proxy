@@ -22,7 +22,7 @@ var (
 	}
 	// DefaultDialer is a dialer with all fields set to the default zero values.
 	DefaultDialer = websocket.DefaultDialer
-	AllowOrigin = os.Getenv("EXUP_ALLOW_ORIGIN")
+	AllowOrigin = os.Getenv("MINIENV_ALLOW_ORIGIN")
 )
 
 type ReverseProxy struct {

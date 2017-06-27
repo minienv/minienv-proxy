@@ -14,7 +14,7 @@ func main() {
 	if _, err := strconv.Atoi(os.Args[1]); err != nil {
 		log.Fatalf("Invalid port: %s (%s)\n", os.Args[1], err)
 	}
-	err := http.ListenAndServe(":"+os.Args[1], NewReverseProxy(os.Getenv("EXUP_TARGET_HOST")))
+	err := http.ListenAndServe(":"+os.Args[1], NewReverseProxy(os.Getenv("MINIENV_TARGET_HOST")))
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
