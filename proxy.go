@@ -68,7 +68,7 @@ func isWebsocket(req *http.Request) bool {
 
 func NewReverseHttpProxy(targetHost string) *httputil.ReverseProxy {
 	director := func(req *http.Request) {
-		hostParts := strings.SplitN(req.Host, ".", 2)
+		hostParts := strings.Split(req.Host, ".")
 		if len(hostParts) < 2 {
 			req.URL.Host = req.Host
 		} else {
@@ -90,7 +90,7 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	// generate backend URL
 	backendURL := &url.URL{}
 	backendURL.Scheme = "ws"
-	hostParts := strings.SplitN(req.Host, ".", 2)
+	hostParts := strings.Split(req.Host, ".")
 	if len(hostParts) < 2 {
 		backendURL.Host = req.Host
 	} else {
