@@ -98,6 +98,7 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 		backendURL.Host = p.TargetHost + ":" + targetPort
 	}
 	backendURL.Path = req.URL.Path
+	backendURL.RawQuery = req.URL.RawQuery
 
 	dialer := p.Dialer
 	if p.Dialer == nil {
@@ -151,19 +152,28 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	// opening a new TCP connection time for each request. This should be
 	// optional:
 	// http://tools.ietf.org/html/draft-ietf-hybi-websocket-multiplexing-01
+	log.Printf("Dialing backend @ %s\n", backendURL.String())
 	connBackend, resp, err := dialer.Dial(backendURL.String(), requestHeader)
+	log.Printf("Response received from backend...\n")
 	if err != nil {
 		log.Printf("websocketproxy: couldn't dial to remote backend url %s\n", err)
+		if resp != nil {
+			log.Printf("websocketproxy: resp.status = %s\n", resp.Status)
+			w.WriteHeader(resp.StatusCode)
+		}
 		return
 	}
+	log.Printf("Closing backend...\n")
 	defer connBackend.Close()
 
+	log.Printf("Creating upgrader...\n")
 	upgrader := p.Upgrader
 	if p.Upgrader == nil {
 		upgrader = DefaultUpgrader
 	}
 
 	// Only pass those headers to the upgrader.
+	log.Printf("Setting upgrade headers...\n")
 	upgradeHeader := http.Header{}
 	if hdr := resp.Header.Get("Sec-Websocket-Protocol"); hdr != "" {
 		upgradeHeader.Set("Sec-Websocket-Protocol", hdr)
@@ -174,6 +184,7 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 
 	// Now upgrade the existing incoming request to a WebSocket connection.
 	// Also pass the header that we gathered from the Dial handshake.
+	log.Printf("Upgrading connection...\n")
 	connPub, err := upgrader.Upgrade(w, req, upgradeHeader)
 	if err != nil {
 		log.Printf("websocketproxy: couldn't upgrade %s\n", err)
@@ -181,6 +192,7 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	}
 	defer connPub.Close()
 
+	log.Printf("Creating channel...\n")
 	errc := make(chan error, 2)
 	cp := func(dst io.Writer, src io.Reader) {
 		_, err := io.Copy(dst, src)
@@ -188,6 +200,7 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	}
 
 	// Start our proxy now, everything is ready...
+	log.Printf("Starting proxy...\n")
 	go cp(connBackend.UnderlyingConn(), connPub.UnderlyingConn())
 	go cp(connPub.UnderlyingConn(), connBackend.UnderlyingConn())
 	<-errc
