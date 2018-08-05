@@ -68,15 +68,29 @@ func isWebsocket(req *http.Request) bool {
 
 func NewReverseHttpProxy(targetHost string) *httputil.ReverseProxy {
 	director := func(req *http.Request) {
-		hostParts := strings.Split(req.Host, ".")
+		host := req.Host
+		target := targetHost
+		if target == "" {
+			// here we expect session-port.xxx OR session-port-port.xxx
+			hostParts := strings.Split(host, "-")
+			if len(hostParts) >= 2 {
+				session := hostParts[0]
+				// TODO: look up the internal service based on the session and make sure user is authorized to view
+				// for now we are just passing the service as the first part (not the session)
+				service := "env-" + session + "-service"
+				target = service + ".minienv.svc.cluster.local"
+				host = strings.Join(hostParts[1:], ".") // trim the session and convert dashes to periods
+			}
+		}
+		hostParts := strings.SplitN(host, ".", 2)
 		if len(hostParts) < 2 {
-			req.URL.Host = req.Host
+			req.URL.Host = host
 		} else {
 			targetPort := hostParts[0]
-			req.URL.Host = targetHost + ":" + targetPort
+			req.URL.Host = target + ":" + targetPort
 		}
 		req.URL.Scheme = "http"
-		req.Host = req.URL.Host
+		req.Host = hostParts[1]
 	}
 	return &httputil.ReverseProxy{Director: director, Transport: &ProxyTransport{RoundTripper: http.DefaultTransport}}
 
@@ -87,15 +101,30 @@ func NewReverseWebsocketProxy(targetHost string) *ReverseWebsocketProxy {
 }
 
 func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	//
+	target := p.TargetHost
+	host := req.Host
+	if target == "" {
+		// here we expect session-port.xxx OR session-port-port.xxx
+		hostParts := strings.Split(host, "-")
+		if len(hostParts) >= 2 {
+			session := hostParts[0]
+			// TODO: look up the internal service based on the session and make sure user is authorized to view
+			// for now we are just passing the service as the first part (not the session)
+			service := "env-" + session + "-service"
+			target = string(service) + ".minienv.svc.cluster.local"
+			host = strings.Join(hostParts[1:], ".") // trim the session and convert dashes to periods
+		}
+	}
 	// generate backend URL
 	backendURL := &url.URL{}
 	backendURL.Scheme = "ws"
-	hostParts := strings.Split(req.Host, ".")
+	hostParts := strings.Split(host, ".")
 	if len(hostParts) < 2 {
-		backendURL.Host = req.Host
+		backendURL.Host = host
 	} else {
 		targetPort := hostParts[0]
-		backendURL.Host = p.TargetHost + ":" + targetPort
+		backendURL.Host = target + ":" + targetPort
 	}
 	backendURL.Path = req.URL.Path
 	backendURL.RawQuery = req.URL.RawQuery
