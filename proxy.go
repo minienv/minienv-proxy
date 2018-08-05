@@ -77,7 +77,7 @@ func NewReverseHttpProxy(targetHost string) *httputil.ReverseProxy {
 				session := hostParts[0]
 				// TODO: look up the internal service based on the session and make sure user is authorized to view
 				// for now we are just passing the service as the first part (not the session)
-				service := "env-" + session + "-service"
+				service := "env-" + string(session[0]) + "-service"
 				target = service + ".minienv.svc.cluster.local"
 				host = strings.Join(hostParts[1:], ".") // trim the session and convert dashes to periods
 			}
@@ -111,7 +111,7 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 			session := hostParts[0]
 			// TODO: look up the internal service based on the session and make sure user is authorized to view
 			// for now we are just passing the service as the first part (not the session)
-			service := "env-" + session + "-service"
+			service := "env-" + string(session[0]) + "-service"
 			target = string(service) + ".minienv.svc.cluster.local"
 			host = strings.Join(hostParts[1:], ".") // trim the session and convert dashes to periods
 		}
