@@ -74,12 +74,15 @@ func NewReverseHttpProxy(targetHost string) *httputil.ReverseProxy {
 			// here we expect session-port.xxx OR session-port-port.xxx
 			hostParts := strings.Split(host, "-")
 			if len(hostParts) >= 2 {
-				session := hostParts[0]
-				// TODO: look up the internal service based on the session and make sure user is authorized to view
-				// for now we are just passing the service as the first part (not the session)
-				service := "env-" + string(session[0]) + "-service"
-				target = service + ".minienv.svc.cluster.local"
-				host = strings.Join(hostParts[1:], ".") // trim the session and convert dashes to periods
+				sessionId := hostParts[0]
+				if sessionStore != nil {
+					session, _ := sessionStore.getSession(sessionId)
+					if session != nil {
+						service := "env-" + session.EnvId + "-service"
+						target = service + ".minienv.svc.cluster.local"
+						host = strings.Join(hostParts[1:], ".") // trim the session and convert dashes to periods
+					}
+				}
 			}
 		}
 		hostParts := strings.SplitN(host, ".", 2)
@@ -101,19 +104,21 @@ func NewReverseWebsocketProxy(targetHost string) *ReverseWebsocketProxy {
 }
 
 func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	//
 	target := p.TargetHost
 	host := req.Host
 	if target == "" {
 		// here we expect session-port.xxx OR session-port-port.xxx
 		hostParts := strings.Split(host, "-")
 		if len(hostParts) >= 2 {
-			session := hostParts[0]
-			// TODO: look up the internal service based on the session and make sure user is authorized to view
-			// for now we are just passing the service as the first part (not the session)
-			service := "env-" + string(session[0]) + "-service"
-			target = string(service) + ".minienv.svc.cluster.local"
-			host = strings.Join(hostParts[1:], ".") // trim the session and convert dashes to periods
+			sessionId := hostParts[0]
+			if sessionStore != nil {
+				session, _ := sessionStore.getSession(sessionId)
+				if session != nil {
+					service := "env-" + session.EnvId + "-service"
+					target = service + ".minienv.svc.cluster.local"
+					host = strings.Join(hostParts[1:], ".") // trim the session and convert dashes to periods
+				}
+			}
 		}
 	}
 	// generate backend URL
