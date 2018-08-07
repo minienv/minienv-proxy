@@ -91,8 +91,7 @@ func NewReverseHttpProxy(target string) *httputil.ReverseProxy {
 						targetHost = service + ".minienv.svc.cluster.local"
 						targetPort = hostParts[1]
 						if len(hostParts) > 2 {
-							// hostParts[2] should be "targetProxyPort.minienvHost"
-							targetProxyPort = strings.Split(hostParts[2], ".")[0]
+							targetProxyPort = hostParts[2]
 						}
 					}
 				}
@@ -133,21 +132,18 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 		// 1. sessionId-targetPort.minienvHost - we get the target environment from the redis store using sessionId
 		// 2. sessionId-targetPort-targetProxyPort.minienvHost - in this case the target is a proxy inside the environment
 		// below we extract this to [sessionId,targetPort,targetProxyPort]
-		urlParts := strings.SplitN(req.Host, ".", 2)
-		if len(urlParts) == 2 {
-			targetOrigin = AllowOrigin
-			hostParts := strings.Split(urlParts[0], "-")
-			if len(hostParts) >= 2 {
-				sessionId := hostParts[0]
-				if sessionStore != nil {
-					session, _ := sessionStore.getSession(sessionId)
-					if session != nil {
-						service := "env-" + session.EnvId + "-service"
-						targetHost = service + ".minienv.svc.cluster.local"
-						targetPort = hostParts[1]
-						if len(hostParts) > 2 {
-							targetProxyPort = hostParts[2]
-						}
+		hostParts := strings.Split(strings.Split(req.Host, ".")[0], "-")
+		if len(hostParts) >= 2 {
+			sessionId := hostParts[0]
+			if sessionStore != nil {
+				session, _ := sessionStore.getSession(sessionId)
+				if session != nil {
+					service := "env-" + session.EnvId + "-service"
+					targetOrigin = AllowOrigin
+					targetHost = service + ".minienv.svc.cluster.local"
+					targetPort = hostParts[1]
+					if len(hostParts) > 2 {
+						targetProxyPort = hostParts[2]
 					}
 				}
 			}
