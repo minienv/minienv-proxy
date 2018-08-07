@@ -7,6 +7,7 @@ import (
 	"strconv"
 )
 
+var hostProtocol string
 var sessionStore SessionStore
 
 type SessionStore interface {
@@ -25,7 +26,7 @@ func main() {
 	if _, err := strconv.Atoi(os.Args[1]); err != nil {
 		log.Fatalf("Invalid port: %s (%s)\n", os.Args[1], err)
 	}
-	// load session store if specified
+	hostProtocol = os.Getenv("MINIENV_HOST_PROTOCOL")
 	redisAddress := os.Getenv("MINIENV_REDIS_ADDRESS")
 	redisPassword := os.Getenv("MINIENV_REDIS_PASSWORD")
 	redisDb := os.Getenv("MINIENV_REDIS_DB")
