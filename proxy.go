@@ -206,7 +206,7 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	// be terminated on our site and because we doing proxy adding this would
 	// be helpful for applications on the backend.
 	requestHeader.Set("X-Forwarded-Proto", "http")
-	if req.TLS != nil /*|| hostProtocol == "https"*/ {
+	if req.TLS != nil {
 		requestHeader.Set("X-Forwarded-Proto", "https")
 	}
 
