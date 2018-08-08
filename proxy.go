@@ -87,8 +87,7 @@ func NewReverseHttpProxy(target string) *httputil.ReverseProxy {
 				if sessionStore != nil {
 					session, _ := sessionStore.getSession(sessionId)
 					if session != nil {
-						service := "env-" + session.EnvId + "-service"
-						targetHost = service + ".minienv.svc.cluster.local"
+						targetHost = session.EnvServiceName + ".minienv.svc.cluster.local"
 						targetPort = hostParts[1]
 						if len(hostParts) > 2 {
 							targetProxyPort = hostParts[2]
@@ -138,9 +137,8 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 			if sessionStore != nil {
 				session, _ := sessionStore.getSession(sessionId)
 				if session != nil {
-					service := "env-" + session.EnvId + "-service"
 					targetOrigin = AllowOrigin
-					targetHost = service + ".minienv.svc.cluster.local"
+					targetHost = session.EnvServiceName + ".minienv.svc.cluster.local"
 					targetPort = hostParts[1]
 					if len(hostParts) > 2 {
 						targetProxyPort = hostParts[2]
