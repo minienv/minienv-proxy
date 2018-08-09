@@ -78,10 +78,10 @@ func NewReverseHttpProxy(target string) *httputil.ReverseProxy {
 		if target == "" {
 			// when target is empty we expect the target to be in the url/redis store
 			// we expect the host to be in the form of one of the following:
-			// 1. sessionId-targetPort.minienvHost - we get the target environment from the redis store using sessionId
-			// 2. sessionId-targetPort-targetProxyPort.minienvHost - in this case the target is a proxy inside the environment
+			// 1. time-sessionId-targetPort.minienvHost - we get the target environment from the redis store using sessionId
+			// 2. time-sessionId-targetPort-targetProxyPort.minienvHost - in this case the target is a proxy inside the environment
 			// below we extract this to [sessionId,targetPort,targetProxyPort]
-			hostParts := strings.Split(strings.Split(req.Host, ".")[0], "-")
+			hostParts := strings.Split(strings.Split(req.Host, ".")[0], "-")[1:]
 			if len(hostParts) >= 2 {
 				sessionId := hostParts[0]
 				if sessionStore != nil {
@@ -128,10 +128,10 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	if targetHost == "" {
 		// when target is empty we expect the target to be in the url/redis store
 		// we expect the host to be in the form of one of the following:
-		// 1. sessionId-targetPort.minienvHost - we get the target environment from the redis store using sessionId
-		// 2. sessionId-targetPort-targetProxyPort.minienvHost - in this case the target is a proxy inside the environment
+		// 1. time-sessionId-targetPort.minienvHost - we get the target environment from the redis store using sessionId
+		// 2. time-sessionId-targetPort-targetProxyPort.minienvHost - in this case the target is a proxy inside the environment
 		// below we extract this to [sessionId,targetPort,targetProxyPort]
-		hostParts := strings.Split(strings.Split(req.Host, ".")[0], "-")
+		hostParts := strings.Split(strings.Split(req.Host, ".")[0], "-")[1:]
 		if len(hostParts) >= 2 {
 			sessionId := hostParts[0]
 			if sessionStore != nil {
