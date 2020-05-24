@@ -51,14 +51,14 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Set("Access-Control-Allow-Origin", AllowOrigin)
 	rw.Header().Set("Access-Control-Allow-Headers", "X-Requested-With")
 	// Route to websocket or http proxy
-	if isWebsocket(req) {
+	if IsWebsocket(req) {
 		p.ReverseWebsocketProxy.ServeHTTP(rw, req)
 	} else {
 		p.ReverseHttpProxy.ServeHTTP(rw, req)
 	}
 }
 
-func isWebsocket(req *http.Request) bool {
+func IsWebsocket(req *http.Request) bool {
 	if strings.Join(req.Header["Upgrade"], "") == "websocket" {
 		return true
 	} else {
@@ -66,17 +66,51 @@ func isWebsocket(req *http.Request) bool {
 	}
 }
 
-func NewReverseHttpProxy(targetHost string) *httputil.ReverseProxy {
+func CheckWebsocketOrigin(r *http.Request) bool {
+	return true
+}
+
+func NewReverseHttpProxy(target string) *httputil.ReverseProxy {
 	director := func(req *http.Request) {
-		hostParts := strings.Split(req.Host, ".")
-		if len(hostParts) < 2 {
-			req.URL.Host = req.Host
-		} else {
-			targetPort := hostParts[0]
-			req.URL.Host = targetHost + ":" + targetPort
+		targetHost := target
+		targetPort := ""
+		targetProxyPort := ""
+		if target == "" {
+			// when target is empty we expect the target to be in the url/redis store
+			// we expect the host to be in the form of one of the following:
+			// 1. time-sessionId-targetPort.minienvHost - we get the target environment from the redis store using sessionId
+			// 2. time-sessionId-targetPort-targetProxyPort.minienvHost - in this case the target is a proxy inside the environment
+			// below we extract this to [sessionId,targetPort,targetProxyPort]
+			hostParts := strings.Split(strings.Split(req.Host, ".")[0], "-")[1:]
+			if len(hostParts) >= 2 {
+				sessionId := hostParts[0]
+				if sessionStore != nil {
+					session, _ := sessionStore.getSession(sessionId)
+					if session != nil {
+						targetHost = session.EnvServiceName + ".minienv.svc.cluster.local"
+						targetPort = hostParts[1]
+						if len(hostParts) > 2 {
+							targetProxyPort = hostParts[2]
+						}
+					}
+				}
+			}
 		}
+		// if the targetPort is not set try and get it from the header
+		if targetPort == "" {
+			targetPort = req.Header.Get("Minienv-Proxy-Port")
+		}
+		targetPortStr := ""
+		if targetPort != "" {
+			targetPortStr = ":" + targetPort
+		}
+		req.Host = targetHost
+		req.URL.Host = targetHost + targetPortStr
 		req.URL.Scheme = "http"
-		req.Host = req.URL.Host
+		if targetProxyPort != "" {
+			req.Header.Set("Minienv-Proxy-Port", targetProxyPort)
+		}
+		//log.Printf("Proxying http connection to %s\n", req.URL.String())
 	}
 	return &httputil.ReverseProxy{Director: director, Transport: &ProxyTransport{RoundTripper: http.DefaultTransport}}
 
@@ -87,28 +121,59 @@ func NewReverseWebsocketProxy(targetHost string) *ReverseWebsocketProxy {
 }
 
 func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	targetHost := p.TargetHost
+	targetPort := ""
+	targetProxyPort := ""
+	targetOrigin := req.Header.Get("Origin")
+	if targetHost == "" {
+		// when target is empty we expect the target to be in the url/redis store
+		// we expect the host to be in the form of one of the following:
+		// 1. time-sessionId-targetPort.minienvHost - we get the target environment from the redis store using sessionId
+		// 2. time-sessionId-targetPort-targetProxyPort.minienvHost - in this case the target is a proxy inside the environment
+		// below we extract this to [sessionId,targetPort,targetProxyPort]
+		hostParts := strings.Split(strings.Split(req.Host, ".")[0], "-")[1:]
+		if len(hostParts) >= 2 {
+			sessionId := hostParts[0]
+			if sessionStore != nil {
+				session, _ := sessionStore.getSession(sessionId)
+				if session != nil {
+					targetOrigin = AllowOrigin
+					targetHost = session.EnvServiceName + ".minienv.svc.cluster.local"
+					targetPort = hostParts[1]
+					if len(hostParts) > 2 {
+						targetProxyPort = hostParts[2]
+					}
+				}
+			}
+		}
+	}
+	// if the targetPort is not set try and get it from the header
+	if targetPort == "" {
+		targetPort = req.Header.Get("Minienv-Proxy-Port")
+	}
+	targetPortStr := ""
+	if targetPort != "" {
+		targetPortStr = ":" + targetPort
+	}
 	// generate backend URL
 	backendURL := &url.URL{}
+	backendURL.Host = targetHost + targetPortStr
 	backendURL.Scheme = "ws"
-	hostParts := strings.Split(req.Host, ".")
-	if len(hostParts) < 2 {
-		backendURL.Host = req.Host
-	} else {
-		targetPort := hostParts[0]
-		backendURL.Host = p.TargetHost + ":" + targetPort
-	}
 	backendURL.Path = req.URL.Path
+	backendURL.RawQuery = req.URL.RawQuery
 
 	dialer := p.Dialer
 	if p.Dialer == nil {
 		dialer = DefaultDialer
 	}
 
-	// Pass headers from the incoming request to the dialer to forward them to
-	// the final destinations.
+	// set headers
 	requestHeader := http.Header{}
-	if origin := req.Header.Get("Origin"); origin != "" {
-		requestHeader.Add("Origin", origin)
+	if targetProxyPort != "" {
+		requestHeader.Set("Minienv-Proxy-Port", targetProxyPort)
+	}
+	if targetOrigin != "" {
+		requestHeader.Add("Origin", targetOrigin)
 	}
 	for _, prot := range req.Header[http.CanonicalHeaderKey("Sec-WebSocket-Protocol")] {
 		requestHeader.Add("Sec-WebSocket-Protocol", prot)
@@ -139,6 +204,8 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 		requestHeader.Set("X-Forwarded-Proto", "https")
 	}
 
+	requestHeader.Set("X-Forwarded-Proto", "https")
+
 	// Enable the director to copy any additional headers it desires for
 	// forwarding to the remote server.
 	//if p.Director != nil {
@@ -151,9 +218,14 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	// opening a new TCP connection time for each request. This should be
 	// optional:
 	// http://tools.ietf.org/html/draft-ietf-hybi-websocket-multiplexing-01
+	log.Printf("Proxying websocket connection to %s\n", backendURL.String())
 	connBackend, resp, err := dialer.Dial(backendURL.String(), requestHeader)
 	if err != nil {
 		log.Printf("websocketproxy: couldn't dial to remote backend url %s\n", err)
+		if resp != nil {
+			log.Printf("websocketproxy: resp.status = %s\n", resp.Status)
+			w.WriteHeader(resp.StatusCode)
+		}
 		return
 	}
 	defer connBackend.Close()
@@ -162,6 +234,7 @@ func (p *ReverseWebsocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	if p.Upgrader == nil {
 		upgrader = DefaultUpgrader
 	}
+	upgrader.CheckOrigin = CheckWebsocketOrigin
 
 	// Only pass those headers to the upgrader.
 	upgradeHeader := http.Header{}
