@@ -18,7 +18,7 @@ func NewRedisSessionStore(address string, password string, dbStr string) (*Redis
 		Password: password,
 		DB: int(db),
 	})
-	_, err := client.Ping().Result()
+	_, err := client.Ping(client.Context()).Result()
 	if err != nil {
 		log.Printf("Failed to ping Redis: %v\n", err)
 		return nil, err
@@ -29,7 +29,7 @@ func NewRedisSessionStore(address string, password string, dbStr string) (*Redis
 }
 
 func (store RedisSessionStore) getSession(id string) (*Session, error) {
-	bs, err := store.Client.Get(id).Bytes()
+	bs, err := store.Client.Get(client.Context(), id).Bytes()
 	if err != nil {
 		return nil, err
 	}
